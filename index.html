@@ -2,294 +2,244 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Capturador Profesional</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Capturador PRO – Scanner con Linterna Automática</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-<!-- LIBRERÍAS -->
-<script src="https://unpkg.com/html5-qrcode"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
 
 <style>
-body{
-  margin:0;
-  font-family:Segoe UI, Arial, sans-serif;
-  background:#f8fafc;
-  color:#0f172a;
-}
-header{
-  background:#ffffff;
-  padding:14px;
-  text-align:center;
-  font-size:20px;
-  font-weight:bold;
-  border-bottom:2px solid #e2e8f0;
-}
-.container{
-  padding:15px;
-  max-width:1000px;
-  margin:auto;
-}
-.card{
-  background:#ffffff;
-  border-radius:14px;
-  padding:15px;
-  margin-bottom:15px;
-  box-shadow:0 4px 12px rgba(0,0,0,.08);
-}
-h3{margin-top:0}
+*{box-sizing:border-box;font-family:Arial}
+body{margin:0;background:#f1f5f9;color:#0f172a}
+.wrap{max-width:480px;margin:auto;padding:14px}
+.card{background:#fff;border-radius:20px;padding:16px;box-shadow:0 10px 25px rgba(0,0,0,.08)}
+h2{text-align:center;margin:0 0 10px;font-size:18px}
 
-/* BOTONES */
-button{
-  padding:12px;
-  border:none;
-  border-radius:12px;
-  background:#14b8a6;
-  color:#fff;
-  font-weight:bold;
-  cursor:pointer;
+input,button{
+ width:100%;padding:14px;margin-top:10px;
+ border-radius:14px;border:1px solid #e2e8f0;font-size:15px
 }
-button.secondary{background:#22c55e}
-button.stop{background:#ef4444}
+button{border:none;font-weight:700}
+.secondary{background:#64748b;color:#fff}
+.success{background:#22c55e;color:#fff}
+.danger{background:#ef4444;color:#fff}
+.primary{background:#0ea5e9;color:#fff}
+.qrbtn{width:64px;background:#22c55e;color:#fff;font-size:22px}
+
+.field{display:flex;gap:8px}
+.field input{flex:1}
+
+.item{background:#f8fafc;padding:12px;border-radius:14px;margin-top:8px;cursor:pointer}
+.small{font-size:12px;color:#475569}
+.actions{display:flex;gap:8px;margin-top:6px}
 
 /* SCANNER */
-#qr-reader{
-  width:100%;
-  min-height:320px;
-  border-radius:14px;
-  border:3px solid #14b8a6;
-  background:#000;
+#scannerBox{
+ display:none;
+ position:relative;
+ margin-top:12px;
+ height:260px;
+ border-radius:18px;
+ overflow:hidden;
+ background:#000
 }
+.scan-frame{position:absolute;inset:0;border:2px solid rgba(255,0,0,.6)}
+.scan-line{
+ position:absolute;left:0;right:0;
+ height:2px;background:red;
+ animation:scan 2s linear infinite
+}
+@keyframes scan{0%{top:0}50%{top:95%}100%{top:0}}
 
-/* FORM */
-.grid{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-  gap:10px;
+.scanner-controls{
+ position:absolute;
+ bottom:10px;left:10px;right:10px;
+ display:flex;gap:10px
 }
-input{
-  padding:12px;
-  border-radius:10px;
-  border:1px solid #cbd5f5;
-  font-size:15px;
-}
-input:focus{
-  border-color:#14b8a6;
-  outline:none;
-}
-
-/* TABLE */
-table{
-  width:100%;
-  border-collapse:collapse;
-  font-size:14px;
-}
-th,td{
-  padding:8px;
-  border-bottom:1px solid #e2e8f0;
-  text-align:center;
-}
-th{background:#f1f5f9}
-
-.status{
-  margin-top:10px;
-  padding:10px;
-  background:#f1f5f9;
-  border-radius:10px;
-  font-size:14px;
-  text-align:center;
-}
-.actions{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  justify-content:center;
-}
+.ctrl{flex:1;padding:10px;border-radius:12px;font-size:14px}
 </style>
 </head>
 
 <body>
 
-<header>📦 CAPTURADOR PROFESIONAL</header>
-
-<div class="container">
-
-<div class="card">
-  <h3>📷 Escáner de Cámara</h3>
-  <div id="qr-reader"></div>
-  <div class="status" id="estado">Escáner detenido</div>
-  <div class="actions">
-    <button onclick="iniciarScanner()">▶ Iniciar Escáner</button>
-    <button class="stop" onclick="detenerScanner()">⛔ Detener</button>
-  </div>
-</div>
-
-<div class="card">
-  <h3>🧾 Ingreso de Datos</h3>
-  <div class="grid">
-    <input id="ubicacion" placeholder="Ubicación">
-    <input id="codigo" placeholder="Escanee o digite código">
-    <input id="descripcion" placeholder="Descripción" readonly>
-    <input id="cantidad" type="number" value="1">
-    <input id="fecha" readonly>
-  </div>
-  <div class="actions" style="margin-top:10px">
-    <button class="secondary" onclick="agregarManual()">➕ Ingresar</button>
-  </div>
-</div>
-
-<div class="card">
-  <h3>📋 Registros</h3>
-  <table>
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>Ubicación</th>
-        <th>Código</th>
-        <th>Descripción</th>
-        <th>Cantidad</th>
-        <th>Fecha</th>
-      </tr>
-    </thead>
-    <tbody id="tbody"></tbody>
-  </table>
-</div>
-
-<div class="card actions">
-  <button onclick="exportar()">📤 Exportar Excel</button>
-  <button class="secondary" onclick="finalizar()">✅ Finalizar Proceso</button>
-</div>
-
-</div>
-
 <audio id="beep">
-  <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg">
+ <source src="https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg">
 </audio>
 
+<div class="wrap">
+ <div class="card">
+  <h2>📋 Capturador PRO</h2>
+
+  <input id="operador" placeholder="Operador">
+  <input id="ubicacion" placeholder="Ubicación">
+
+  <div class="field">
+   <input id="codigo" placeholder="Código">
+   <button class="qrbtn" onclick="scanCodigo()">📷</button>
+  </div>
+
+  <input id="descripcion" placeholder="Descripción">
+  <input id="cantidad" type="number" value="1">
+
+  <button id="btnGuardar" class="secondary" onclick="guardar()">➕ Ingresar</button>
+
+  <div id="scannerBox">
+   <div class="scan-frame"></div>
+   <div class="scan-line"></div>
+   <div class="scanner-controls">
+    <button class="ctrl success" onclick="toggleTorch()">🔦 Linterna</button>
+    <button class="ctrl danger" onclick="cerrarScanner()">❌ Cerrar</button>
+   </div>
+  </div>
+
+  <div id="lista"></div>
+
+  <button class="success" onclick="exportarExcel()">📊 Exportar Excel</button>
+  <button class="primary" onclick="exportarPDF()">📄 Exportar PDF</button>
+  <button class="danger" onclick="finalizar()">❌ Finalizar</button>
+ </div>
+</div>
+
 <script>
-/* ================= CONFIG ================= */
-const API = "https://script.google.com/macros/s/AKfycbwOx6mRhIPWQLXXeH5s_Fsw3A6A_dZv-ATUxQpybSR5jsoaH34i8c62eIhipmNy--ug/exec";
+let capturas = JSON.parse(localStorage.getItem("capturas")||"[]");
+let editIndex = null;
+let scanner = null;
+let torch = true; // 🔥 ARRANCA ENCENDIDA
 
-/* ================= STATE ================= */
-let registros = JSON.parse(localStorage.getItem("registros_captura") || "[]");
-let scannerUI = null;
-
-/* ================= INIT ================= */
-fecha.value = new Date().toLocaleString();
 render();
 
-window.addEventListener("beforeunload",()=>{
-  localStorage.setItem("registros_captura",JSON.stringify(registros));
-});
-
-/* ================= SCANNER ================= */
-function iniciarScanner(){
-  if(scannerUI) return;
-
-  estado.innerText="Inicializando cámara…";
-
-  scannerUI = new Html5QrcodeScanner(
-    "qr-reader",
-    { fps: 10, qrbox: 250, rememberLastUsedCamera: true },
-    false
-  );
-
-  scannerUI.render(
-    text => {
-      document.getElementById("beep").play();
-      codigo.value = text;
-      procesar();
-    },
-    err => {}
-  );
-
-  estado.innerText="Escáner activo";
+function scanCodigo(){
+ abrirScanner();
 }
 
-function detenerScanner(){
-  if(scannerUI){
-    scannerUI.clear();
-    scannerUI = null;
-    estado.innerText="Escáner detenido";
+function abrirScanner(){
+ if(scanner) return;
+ scannerBox.style.display="block";
+ scanner = new Html5Qrcode("scannerBox");
+
+ scanner.start(
+  {facingMode:"environment"},
+  {fps:10, qrbox:250},
+  txt=>{
+    beep.play();
+    navigator.vibrate?.(200);
+    codigo.value = txt;
+    cerrarScanner();
   }
+ ).then(()=>{
+  // 🔦 ENCENDER LINTERNÁ AUTOMÁTICAMENTE
+  scanner.applyVideoConstraints({
+    advanced:[{torch:true}]
+  }).catch(()=>{});
+ });
 }
 
-/* ================= LOGIC ================= */
-codigo.addEventListener("keydown",e=>{
-  if(e.key==="Enter") procesar();
-});
-
-async function procesar(){
-  const cod = codigo.value.trim();
-  if(!cod) return;
-
-  estado.innerText="Consultando descripción…";
-  let desc="NO REGISTRADO";
-
-  try{
-    const r = await fetch(`${API}?codigo=${encodeURIComponent(cod)}`);
-    const d = await r.json();
-    if(Array.isArray(d) && d[0]){
-      desc = d[0].descripcion || d[0].Descripcion || desc;
-    }else{
-      desc = d.descripcion || d.Descripcion || desc;
-    }
-  }catch{
-    desc="ERROR API";
-  }
-
-  descripcion.value = desc;
-  agregar();
+function cerrarScanner(){
+ if(!scanner) return;
+ scanner.stop().then(()=>{
+  scanner.clear();
+  scanner=null;
+  scannerBox.style.display="none";
+ });
 }
 
-function agregarManual(){
-  procesar();
+function toggleTorch(){
+ torch=!torch;
+ scanner?.applyVideoConstraints({
+  advanced:[{torch:torch}]
+ }).catch(()=>{});
 }
 
-function agregar(){
-  registros.push({
-    ubicacion: ubicacion.value,
-    codigo: codigo.value,
-    descripcion: descripcion.value,
-    cantidad: cantidad.value,
-    fecha: new Date().toLocaleString()
-  });
-  render();
-  codigo.value="";
-  descripcion.value="";
-  cantidad.value=1;
-  estado.innerText="Registro agregado ✔";
+function guardar(){
+ const reg={
+  Operador:operador.value,
+  Ubicación:ubicacion.value,
+  Código:codigo.value,
+  Descripción:descripcion.value,
+  Cantidad:cantidad.value,
+  Fecha:new Date().toLocaleString()
+ };
+
+ if(editIndex===null){
+  capturas.push(reg);
+ }else{
+  capturas[editIndex]=reg;
+  editIndex=null;
+  btnGuardar.textContent="➕ Ingresar";
+ }
+
+ localStorage.setItem("capturas",JSON.stringify(capturas));
+ limpiar();
+ render();
 }
 
-/* ================= UI ================= */
 function render(){
-  tbody.innerHTML="";
-  registros.forEach((r,i)=>{
-    tbody.innerHTML+=`
-      <tr>
-        <td>${i+1}</td>
-        <td>${r.ubicacion}</td>
-        <td>${r.codigo}</td>
-        <td>${r.descripcion}</td>
-        <td>${r.cantidad}</td>
-        <td>${r.fecha}</td>
-      </tr>`;
-  });
+ lista.innerHTML="";
+ capturas.forEach((c,i)=>{
+  lista.innerHTML+=`
+   <div class="item" onclick="editar(${i})">
+    <b>${c.Código}</b> – ${c.Descripción}<br>
+    <span class="small">${c.Ubicación} | ${c.Operador} | ${c.Cantidad}</span>
+    <div class="actions">
+     <button class="danger" onclick="event.stopPropagation();eliminar(${i})">❌</button>
+    </div>
+   </div>`;
+ });
 }
 
-function exportar(){
-  const ws = XLSX.utils.json_to_sheet(registros);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"Captura");
-  XLSX.writeFile(wb,"captura.xlsx");
+function editar(i){
+ const c=capturas[i];
+ operador.value=c.Operador;
+ ubicacion.value=c.Ubicación;
+ codigo.value=c.Código;
+ descripcion.value=c.Descripción;
+ cantidad.value=c.Cantidad;
+ editIndex=i;
+ btnGuardar.textContent="💾 Guardar";
+}
+
+function eliminar(i){
+ if(confirm("¿Eliminar registro?")){
+  capturas.splice(i,1);
+  localStorage.setItem("capturas",JSON.stringify(capturas));
+  render();
+ }
+}
+
+function limpiar(){
+ codigo.value="";
+ descripcion.value="";
+ cantidad.value=1;
+}
+
+function exportarExcel(){
+ if(!capturas.length)return;
+ const ws=XLSX.utils.json_to_sheet(capturas);
+ const wb=XLSX.utils.book_new();
+ XLSX.utils.book_append_sheet(wb,ws,"Captura");
+ XLSX.writeFile(wb,"captura_pro.xlsx");
+}
+
+function exportarPDF(){
+ if(!capturas.length)return;
+ const w=window.open("");
+ let html="<h3>Reporte</h3><table border='1'><tr>";
+ Object.keys(capturas[0]).forEach(k=>html+="<th>"+k+"</th>");
+ html+="</tr>";
+ capturas.forEach(r=>{
+  html+="<tr>";
+  Object.values(r).forEach(v=>html+="<td>"+v+"</td>");
+  html+="</tr>";
+ });
+ html+="</table>";
+ w.document.write(html);
+ w.print();
 }
 
 function finalizar(){
-  if(!confirm("Finalizar proceso y limpiar datos?")) return;
-  exportar();
-  registros=[];
-  localStorage.removeItem("registros_captura");
-  render();
-  estado.innerText="Proceso finalizado";
+ exportarExcel();
+ localStorage.clear();
+ setTimeout(()=>location.reload(),800);
 }
 </script>
 
