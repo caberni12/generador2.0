@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Capturador Profesional</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- LIBRERÍAS -->
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+
+<style>
+body{
+  margin:0;
+  font-family:Segoe UI, Arial, sans-serif;
+  background:#f8fafc;
+  color:#0f172a;
+}
+header{
+  background:#ffffff;
+  padding:14px;
+  text-align:center;
+  font-size:20px;
+  font-weight:bold;
+  border-bottom:2px solid #e2e8f0;
+}
+.container{
+  padding:15px;
+  max-width:1000px;
+  margin:auto;
+}
+.card{
+  background:#ffffff;
+  border-radius:14px;
+  padding:15px;
+  margin-bottom:15px;
+  box-shadow:0 4px 12px rgba(0,0,0,.08);
+}
+h3{margin-top:0}
+
+/* BOTONES */
+button{
+  padding:12px;
+  border:none;
+  border-radius:12px;
+  background:#14b8a6;
+  color:#fff;
+  font-weight:bold;
+  cursor:pointer;
+}
+button.secondary{background:#22c55e}
+button.stop{background:#ef4444}
+
+/* SCANNER */
+#qr-reader{
+  width:100%;
+  min-height:320px;
+  border-radius:14px;
+  border:3px solid #14b8a6;
+  background:#000;
+}
+
+/* FORM */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:10px;
+}
+input{
+  padding:12px;
+  border-radius:10px;
+  border:1px solid #cbd5f5;
+  font-size:15px;
+}
+input:focus{
+  border-color:#14b8a6;
+  outline:none;
+}
+
+/* TABLE */
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:14px;
+}
+th,td{
+  padding:8px;
+  border-bottom:1px solid #e2e8f0;
+  text-align:center;
+}
+th{background:#f1f5f9}
+
+.status{
+  margin-top:10px;
+  padding:10px;
+  background:#f1f5f9;
+  border-radius:10px;
+  font-size:14px;
+  text-align:center;
+}
+.actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:center;
+}
+</style>
+</head>
+
+<body>
+
+<header>📦 CAPTURADOR PROFESIONAL</header>
+
+<div class="container">
+
+<div class="card">
+  <h3>📷 Escáner de Cámara</h3>
+  <div id="qr-reader"></div>
+  <div class="status" id="estado">Escáner detenido</div>
+  <div class="actions">
+    <button onclick="iniciarScanner()">▶ Iniciar Escáner</button>
+    <button class="stop" onclick="detenerScanner()">⛔ Detener</button>
+  </div>
+</div>
+
+<div class="card">
+  <h3>🧾 Ingreso de Datos</h3>
+  <div class="grid">
+    <input id="ubicacion" placeholder="Ubicación">
+    <input id="codigo" placeholder="Escanee o digite código">
+    <input id="descripcion" placeholder="Descripción" readonly>
+    <input id="cantidad" type="number" value="1">
+    <input id="fecha" readonly>
+  </div>
+  <div class="actions" style="margin-top:10px">
+    <button class="secondary" onclick="agregarManual()">➕ Ingresar</button>
+  </div>
+</div>
+
+<div class="card">
+  <h3>📋 Registros</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Ubicación</th>
+        <th>Código</th>
+        <th>Descripción</th>
+        <th>Cantidad</th>
+        <th>Fecha</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<div class="card actions">
+  <button onclick="exportar()">📤 Exportar Excel</button>
+  <button class="secondary" onclick="finalizar()">✅ Finalizar Proceso</button>
+</div>
+
+</div>
+
+<audio id="beep">
+  <source src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg">
+</audio>
+
+<script>
+/* ================= CONFIG ================= */
+const API = "https://script.google.com/macros/s/AKfycbwOx6mRhIPWQLXXeH5s_Fsw3A6A_dZv-ATUxQpybSR5jsoaH34i8c62eIhipmNy--ug/exec";
+
+/* ================= STATE ================= */
+let registros = JSON.parse(localStorage.getItem("registros_captura") || "[]");
+let scannerUI = null;
+
+/* ================= INIT ================= */
+fecha.value = new Date().toLocaleString();
+render();
+
+window.addEventListener("beforeunload",()=>{
+  localStorage.setItem("registros_captura",JSON.stringify(registros));
+});
+
+/* ================= SCANNER ================= */
+function iniciarScanner(){
+  if(scannerUI) return;
+
+  estado.innerText="Inicializando cámara…";
+
+  scannerUI = new Html5QrcodeScanner(
+    "qr-reader",
+    { fps: 10, qrbox: 250, rememberLastUsedCamera: true },
+    false
+  );
+
+  scannerUI.render(
+    text => {
+      document.getElementById("beep").play();
+      codigo.value = text;
+      procesar();
+    },
+    err => {}
+  );
+
+  estado.innerText="Escáner activo";
+}
+
+function detenerScanner(){
+  if(scannerUI){
+    scannerUI.clear();
+    scannerUI = null;
+    estado.innerText="Escáner detenido";
+  }
+}
+
+/* ================= LOGIC ================= */
+codigo.addEventListener("keydown",e=>{
+  if(e.key==="Enter") procesar();
+});
+
+async function procesar(){
+  const cod = codigo.value.trim();
+  if(!cod) return;
+
+  estado.innerText="Consultando descripción…";
+  let desc="NO REGISTRADO";
+
+  try{
+    const r = await fetch(`${API}?codigo=${encodeURIComponent(cod)}`);
+    const d = await r.json();
+    if(Array.isArray(d) && d[0]){
+      desc = d[0].descripcion || d[0].Descripcion || desc;
+    }else{
+      desc = d.descripcion || d.Descripcion || desc;
+    }
+  }catch{
+    desc="ERROR API";
+  }
+
+  descripcion.value = desc;
+  agregar();
+}
+
+function agregarManual(){
+  procesar();
+}
+
+function agregar(){
+  registros.push({
+    ubicacion: ubicacion.value,
+    codigo: codigo.value,
+    descripcion: descripcion.value,
+    cantidad: cantidad.value,
+    fecha: new Date().toLocaleString()
+  });
+  render();
+  codigo.value="";
+  descripcion.value="";
+  cantidad.value=1;
+  estado.innerText="Registro agregado ✔";
+}
+
+/* ================= UI ================= */
+function render(){
+  tbody.innerHTML="";
+  registros.forEach((r,i)=>{
+    tbody.innerHTML+=`
+      <tr>
+        <td>${i+1}</td>
+        <td>${r.ubicacion}</td>
+        <td>${r.codigo}</td>
+        <td>${r.descripcion}</td>
+        <td>${r.cantidad}</td>
+        <td>${r.fecha}</td>
+      </tr>`;
+  });
+}
+
+function exportar(){
+  const ws = XLSX.utils.json_to_sheet(registros);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"Captura");
+  XLSX.writeFile(wb,"captura.xlsx");
+}
+
+function finalizar(){
+  if(!confirm("Finalizar proceso y limpiar datos?")) return;
+  exportar();
+  registros=[];
+  localStorage.removeItem("registros_captura");
+  render();
+  estado.innerText="Proceso finalizado";
+}
+</script>
+
+</body>
+</html>
